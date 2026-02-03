@@ -1,0 +1,2666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SN扫描比对工具</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 修复：使用正确的html5-qrcode库版本 -->
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #1890ff;
+            --success-color: #52c41a;
+            --error-color: #ff4d4f;
+            --warning-color: #faad14;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --bg-color: #f5f7fa;
+            --card-bg: #ffffff;
+            --border-color: #e8e8e8;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.5;
+            overflow-x: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        /* 优化布局 - 移动端优先 */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+        
+        /* 移动端顶部栏 */
+        .mobile-header {
+            display: none;
+            background: linear-gradient(135deg, var(--primary-color) 0%, #096dd9 100%);
+            color: white;
+            padding: 12px 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+        }
+        
+        .mobile-header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* 主内容区域 - 左右布局 */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            width: 100%;
+        }
+        
+        /* 左侧数据源区域 - 优化移动端显示 */
+        .data-panel {
+            width: 35%;
+            min-width: 300px;
+            max-width: 450px;
+            background-color: var(--card-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        /* 右侧扫描区域 */
+        .scan-panel {
+            flex: 1;
+            background-color: var(--card-bg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* 面板标题 */
+        .panel-header {
+            padding: 16px 20px;
+            background-color: rgba(0, 0, 0, 0.02);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .panel-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* 上传区域优化 - 移动端更紧凑 */
+        .upload-section {
+            margin-bottom: 20px;
+        }
+        
+        .upload-area {
+            border: 2px dashed #d9d9d9;
+            border-radius: 8px;
+            padding: 20px 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background-color: #fafafa;
+        }
+        
+        .upload-area:hover {
+            border-color: var(--primary-color);
+            background-color: rgba(24, 144, 255, 0.04);
+        }
+        
+        .upload-area i {
+            font-size: 36px;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+        
+        .upload-area h3 {
+            font-size: 15px;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+        
+        .upload-area p {
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-bottom: 4px;
+            line-height: 1.4;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        /* 文件列表优化 */
+        .file-list {
+            margin-top: 15px;
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border: 1px solid #e9ecef;
+            font-size: 13px;
+        }
+        
+        .file-item i {
+            color: var(--primary-color);
+            font-size: 16px;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        
+        .file-info {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+        
+        .file-name {
+            font-weight: 500;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .file-size {
+            color: var(--text-secondary);
+            font-size: 11px;
+        }
+        
+        /* SN列表优化 */
+        .sn-list {
+            margin-top: 20px;
+        }
+        
+        .sn-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .sn-list-header h3 {
+            font-size: 15px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .sn-count {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .sn-items {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: #fafafa;
+        }
+        
+        .sn-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+        }
+        
+        .sn-item:last-child {
+            border-bottom: none;
+        }
+        
+        .sn-item i {
+            margin-right: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+        
+        .sn-text {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* 按钮样式优化 */
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #096dd9;
+        }
+        
+        .btn-secondary {
+            background-color: #f0f2f5;
+            color: var(--text-primary);
+        }
+        
+        .btn-secondary:hover {
+            background-color: #e0e2e5;
+        }
+        
+        .btn-danger {
+            background-color: var(--error-color);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #d9363e;
+        }
+        
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #389e0d;
+        }
+        
+        .btn-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+        }
+        
+        .btn-icon:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        /* 扫描模式切换优化 */
+        .scan-mode-tabs {
+            display: flex;
+            margin-bottom: 16px;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            background-color: #f8f9fa;
+        }
+        
+        .scan-mode-tab {
+            flex: 1;
+            padding: 10px 12px;
+            text-align: center;
+            background-color: transparent;
+            border: none;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        
+        .scan-mode-tab:hover {
+            background-color: #e6f7ff;
+        }
+        
+        .scan-mode-tab.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        /* 扫描输入区域优化 */
+        .scan-input-section {
+            margin-bottom: 16px;
+        }
+        
+        .scan-input-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .scan-input-header h3 {
+            font-size: 15px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .scan-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--success-color);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .scan-input-wrapper {
+            position: relative;
+            margin-bottom: 10px;
+        }
+        
+        .scan-input {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            transition: border-color 0.3s;
+            background-color: #fafafa;
+        }
+        
+        .scan-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+        }
+        
+        .scan-hint {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+        
+        .scan-hint i {
+            color: var(--primary-color);
+            font-size: 14px;
+        }
+        
+        /* 摄像头区域优化 - 提高扫描速度 */
+        .camera-container {
+            margin-top: 16px;
+            border-radius: 8px;
+            overflow: hidden;
+            display: none;
+            position: relative;
+            border: 1px solid var(--primary-color);
+            background-color: #000;
+        }
+        
+        #camera-preview {
+            width: 100%;
+            height: 250px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .camera-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+        
+        .scan-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 220px;
+            height: 120px;
+            border: 2px solid var(--success-color);
+            border-radius: 8px;
+            box-shadow: 0 0 0 500px rgba(0, 0, 0, 0.7);
+        }
+        
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--success-color);
+            animation: scanLine 1.5s infinite linear;
+            box-shadow: 0 0 10px var(--success-color);
+        }
+        
+        @keyframes scanLine {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+        
+        .camera-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+        
+        .camera-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            font-size: 12px;
+        }
+        
+        .camera-info i {
+            color: var(--primary-color);
+        }
+        
+        /* 设置区域优化 */
+        .settings-section {
+            margin-top: 20px;
+            padding: 16px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .settings-section h4 {
+            font-size: 14px;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+        
+        .setting-label {
+            color: var(--text-secondary);
+        }
+        
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 22px;
+        }
+        
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(22px);
+        }
+        
+        /* 结果区域优化 */
+        .results-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .results-header h3 {
+            font-size: 15px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .results-stats {
+            display: flex;
+            gap: 16px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .pass-count {
+            color: var(--success-color);
+        }
+        
+        .fail-count {
+            color: var(--error-color);
+        }
+        
+        .results-list {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: #fafafa;
+            margin-bottom: 16px;
+        }
+        
+        .result-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+        
+        .result-item:hover {
+            background-color: #f0f7ff;
+        }
+        
+        .result-item:last-child {
+            border-bottom: none;
+        }
+        
+        .result-status {
+            width: 44px;
+            height: 44px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 20px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .result-status.pass {
+            background-color: rgba(82, 196, 26, 0.1);
+            color: var(--success-color);
+            border: 1px solid rgba(82, 196, 26, 0.3);
+        }
+        
+        .result-status.fail {
+            background-color: rgba(255, 77, 79, 0.1);
+            color: var(--error-color);
+            border: 1px solid rgba(255, 77, 79, 0.3);
+        }
+        
+        .result-details {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+        
+        .result-main {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        
+        .result-sn {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-right: 10px;
+        }
+        
+        .result-text {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        
+        .result-text.pass {
+            color: var(--success-color);
+            background-color: rgba(82, 196, 26, 0.1);
+        }
+        
+        .result-text.fail {
+            color: var(--error-color);
+            background-color: rgba(255, 77, 79, 0.1);
+        }
+        
+        .result-time {
+            color: var(--text-secondary);
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .result-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        
+        /* 语言切换器 */
+        .language-switcher {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 100;
+        }
+        
+        .lang-btn {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+        
+        .lang-btn:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .lang-options {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background-color: var(--card-bg);
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            margin-top: 5px;
+            min-width: 100px;
+            display: none;
+            border: 1px solid var(--border-color);
+        }
+        
+        .lang-options.show {
+            display: block;
+        }
+        
+        .lang-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-primary);
+            transition: background-color 0.2s;
+            font-size: 13px;
+        }
+        
+        .lang-option:hover {
+            background-color: #f0f2f5;
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 30px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state i {
+            font-size: 36px;
+            margin-bottom: 12px;
+            color: #d9d9d9;
+        }
+        
+        .empty-state p {
+            font-size: 13px;
+        }
+        
+        /* 操作按钮组 */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+        
+        .modal-content {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+        
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        .modal-footer {
+            padding: 12px 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+        
+        .close-btn:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .sn-preview {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 12px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .sn-preview-item {
+            padding: 4px 0;
+        }
+        
+        /* 提示消息 */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 16px;
+            border-radius: 6px;
+            color: white;
+            font-weight: 500;
+            z-index: 9999;
+            animation: fadeInUp 0.3s ease, fadeOutDown 0.3s ease 2.5s forwards;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            max-width: 90%;
+            text-align: center;
+            font-size: 13px;
+        }
+        
+        .toast.success {
+            background-color: var(--success-color);
+        }
+        
+        .toast.error {
+            background-color: var(--error-color);
+        }
+        
+        .toast.warning {
+            background-color: var(--warning-color);
+        }
+        
+        .toast.info {
+            background-color: var(--primary-color);
+        }
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translate(-50%, 20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        
+        @keyframes fadeOutDown {
+            from { opacity: 1; transform: translate(-50%, 0); }
+            to { opacity: 0; transform: translate(-50%, 20px); }
+        }
+        
+        /* 重复扫描提示 */
+        .duplicate-alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 16px;
+            border-radius: 6px;
+            background-color: var(--warning-color);
+            color: #fff;
+            font-weight: 500;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 2s forwards;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            max-width: 300px;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        
+        /* 摄像头错误提示 */
+        .camera-error {
+            background-color: rgba(255, 77, 79, 0.1);
+            border: 1px solid var(--error-color);
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .camera-error i {
+            color: var(--error-color);
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .camera-error p {
+            color: var(--error-color);
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        
+        /* 语音测试按钮 */
+        .voice-test-btn {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .voice-test-btn .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .voice-test-btn .btn-sm:hover {
+            opacity: 0.9;
+        }
+        
+        /* 移动端响应式设计 */
+        @media (max-width: 1024px) {
+            .data-panel {
+                width: 40%;
+                min-width: 280px;
+            }
+            
+            .scan-frame {
+                width: 200px;
+                height: 110px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .app-container {
+                height: 100vh;
+            }
+            
+            .mobile-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .main-content {
+                flex-direction: column;
+                height: calc(100vh - 56px);
+            }
+            
+            .data-panel {
+                width: 100%;
+                max-width: 100%;
+                height: 40%;
+                min-height: 40%;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+            }
+            
+            .scan-panel {
+                height: 60%;
+                min-height: 60%;
+            }
+            
+            .panel-content {
+                padding: 12px;
+            }
+            
+            .upload-area {
+                padding: 15px 12px;
+            }
+            
+            .upload-area h3 {
+                font-size: 14px;
+            }
+            
+            .upload-area p {
+                font-size: 11px;
+            }
+            
+            .scan-frame {
+                width: 180px;
+                height: 100px;
+            }
+            
+            #camera-preview {
+                height: 200px;
+            }
+            
+            .result-text {
+                font-size: 18px;
+                padding: 2px 6px;
+            }
+            
+            .result-status {
+                width: 40px;
+                height: 40px;
+                font-size: 18px;
+            }
+            
+            .language-switcher {
+                top: 12px;
+                right: 12px;
+            }
+            
+            .stat-value {
+                font-size: 16px;
+            }
+            
+            .results-stats {
+                gap: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .data-panel {
+                height: 35%;
+                min-height: 35%;
+            }
+            
+            .scan-panel {
+                height: 65%;
+                min-height: 65%;
+            }
+            
+            .upload-area {
+                padding: 12px 10px;
+            }
+            
+            .upload-area i {
+                font-size: 32px;
+            }
+            
+            .scan-frame {
+                width: 160px;
+                height: 90px;
+            }
+            
+            #camera-preview {
+                height: 180px;
+            }
+            
+            .action-buttons {
+                gap: 8px;
+            }
+            
+            .btn {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            
+            .result-sn {
+                font-size: 13px;
+            }
+            
+            .result-text {
+                font-size: 16px;
+            }
+            
+            .panel-header {
+                padding: 12px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 移动端顶部栏 -->
+    <div class="mobile-header">
+        <h1><i class="fas fa-barcode"></i> SN扫描比对工具</h1>
+        <div class="language-switcher">
+            <div class="lang-btn" id="currentLangBtn">
+                <i class="fas fa-globe"></i>
+                <span id="currentLangText">中文</span>
+                <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="lang-options" id="langOptions">
+                <div class="lang-option" data-lang="zh">
+                    <span>🇨🇳</span>
+                    <span>中文</span>
+                </div>
+                <div class="lang-option" data-lang="vi">
+                    <span>🇻🇳</span>
+                    <span>Tiếng Việt</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="app-container">
+        <div class="main-content">
+            <!-- 左侧数据源区域 -->
+            <div class="data-panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-database"></i> <span data-i18n="dataSource">数据源管理</span></h2>
+                </div>
+                <div class="panel-content">
+                    <div class="upload-section">
+                        <div class="upload-area" id="uploadArea">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <h3 data-i18n="uploadTitle">点击或拖拽文件上传</h3>
+                            <p data-i18n="uploadFormat">支持.txt、.csv文件格式</p>
+                            <p data-i18n="uploadHint">每行一个SN，文件大小不超过10MB</p>
+                            <input type="file" class="file-input" id="fileInput" accept=".txt,.csv">
+                        </div>
+                    </div>
+                    
+                    <div class="file-list" id="fileList">
+                        <!-- 已上传文件将显示在这里 -->
+                    </div>
+                    
+                    <div class="sn-list">
+                        <div class="sn-list-header">
+                            <h3><i class="fas fa-list-ul"></i> <span data-i18n="snList">SN列表</span> <span class="sn-count" id="snCount">0</span></h3>
+                            <button class="btn btn-secondary btn-sm" id="clearDataBtn">
+                                <i class="fas fa-trash-alt"></i> <span data-i18n="clearData">清空</span>
+                            </button>
+                        </div>
+                        
+                        <div class="sn-items" id="snItems">
+                            <div class="empty-state">
+                                <i class="fas fa-box-open"></i>
+                                <p data-i18n="noData">暂无数据，请先上传文件</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧扫描区域 -->
+            <div class="scan-panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-barcode"></i> <span data-i18n="scanWindow">扫描窗口</span></h2>
+                    <div class="scan-status">
+                        <div class="status-indicator"></div>
+                        <span id="statusText" data-i18n="ready">就绪</span>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <!-- 扫描模式切换 -->
+                    <div class="scan-mode-tabs">
+                        <button class="scan-mode-tab active" data-mode="manual" id="manualModeBtn">
+                            <i class="fas fa-keyboard"></i>
+                            <span data-i18n="manualInput">手动/扫码枪</span>
+                        </button>
+                        <button class="scan-mode-tab" data-mode="camera" id="cameraModeBtn">
+                            <i class="fas fa-camera"></i>
+                            <span data-i18n="cameraScan">摄像头扫描</span>
+                        </button>
+                    </div>
+                    
+                    <!-- 手动输入区域 -->
+                    <div class="scan-input-section">
+                        <div class="scan-input-wrapper">
+                            <input type="text" class="scan-input" id="scanInput" placeholder="请使用扫码枪扫描SN或手动输入" autofocus>
+                        </div>
+                        <div class="scan-hint">
+                            <i class="fas fa-lightbulb"></i>
+                            <span data-i18n="scanHint">提示：扫描后按回车键确认，或使用扫码枪自动输入</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 摄像头扫描区域 -->
+                    <div class="camera-container" id="cameraContainer">
+                        <div id="camera-preview">
+                            <div class="camera-overlay">
+                                <div class="scan-frame">
+                                    <div class="scan-line"></div>
+                                </div>
+                            </div>
+                            <div id="camera-status" style="z-index: 2; text-align: center; color: white;">
+                                <i class="fas fa-camera" style="font-size: 36px; margin-bottom: 12px;"></i>
+                                <p data-i18n="cameraLoading">正在启动摄像头...</p>
+                            </div>
+                        </div>
+                        <div class="camera-controls">
+                            <div class="camera-info">
+                                <i class="fas fa-info-circle"></i>
+                                <span data-i18n="cameraHint">将条形码/二维码对准扫描框</span>
+                            </div>
+                            <button class="btn btn-danger btn-sm" id="stopCameraBtn">
+                                <i class="fas fa-stop-circle"></i>
+                                <span data-i18n="stopCamera">停止</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 设置区域 -->
+                    <div class="settings-section">
+                        <h4><i class="fas fa-cog"></i> <span data-i18n="scanSettings">扫描设置</span></h4>
+                        <div class="setting-item">
+                            <span class="setting-label" data-i18n="preventDuplicate">禁止重复扫描</span>
+                            <label class="switch">
+                                <input type="checkbox" id="preventDuplicateSwitch" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label" data-i18n="voiceAlert">语音播报</span>
+                            <label class="switch">
+                                <input type="checkbox" id="voiceSwitch" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label" data-i18n="highSpeedScan">高速扫描模式</span>
+                            <label class="switch">
+                                <input type="checkbox" id="highSpeedSwitch" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        
+                        <!-- 语音测试按钮 -->
+                        <div class="voice-test-btn" id="voiceTestBtn">
+                            <button class="btn btn-success btn-sm" id="testVoicePassBtn">
+                                <i class="fas fa-volume-up"></i> 测试PASS
+                            </button>
+                            <button class="btn btn-danger btn-sm" id="testVoiceFailBtn">
+                                <i class="fas fa-volume-up"></i> 测试FAIL
+                            </button>
+                            <button class="btn btn-warning btn-sm" id="testVoiceDuplicateBtn">
+                                <i class="fas fa-volume-up"></i> 测试重复
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 结果区域 -->
+                    <div class="results-section">
+                        <div class="results-header">
+                            <h3><i class="fas fa-history"></i> <span data-i18n="scanResults">扫描结果</span></h3>
+                            <div class="results-stats">
+                                <div class="stat">
+                                    <div class="stat-value" id="totalScanned">0</div>
+                                    <div class="stat-label" data-i18n="total">总计</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-value pass-count" id="passCount">0</div>
+                                    <div class="stat-label">PASS</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-value fail-count" id="failCount">0</div>
+                                    <div class="stat-label">FAIL</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="results-list" id="resultsList">
+                            <div class="empty-state">
+                                <i class="fas fa-barcode"></i>
+                                <p data-i18n="noResults">暂无扫描结果</p>
+                            </div>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button class="btn btn-secondary" id="clearResultsBtn">
+                                <i class="fas fa-trash-alt"></i> <span data-i18n="clearResults">清空结果</span>
+                            </button>
+                            <button class="btn btn-primary" id="exportResultsBtn">
+                                <i class="fas fa-download"></i> <span data-i18n="exportResults">导出结果</span>
+                            </button>
+                            <button class="btn btn-success" id="simulateScanBtn">
+                                <i class="fas fa-bolt"></i> <span data-i18n="simulateScan">模拟扫描</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 文件预览模态框 -->
+    <div class="modal" id="previewModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 data-i18n="filePreview">文件预览</h3>
+                <button class="close-btn" id="closePreviewBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p data-i18n="previewDesc">文件内容预览（最多显示前100行）：</p>
+                <div class="sn-preview" id="snPreview"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelPreviewBtn" data-i18n="cancel">取消</button>
+                <button class="btn btn-primary" id="confirmUploadBtn" data-i18n="confirmUpload">确认上传</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 语言文本定义（简化为中越双语核心功能）
+        const translations = {
+            zh: {
+                "dataSource": "数据源管理",
+                "uploadTitle": "点击或拖拽文件上传",
+                "uploadFormat": "支持.txt、.csv文件格式",
+                "uploadHint": "每行一个SN，文件大小不超过10MB",
+                "snList": "SN列表",
+                "clearData": "清空",
+                "noData": "暂无数据，请先上传文件",
+                "scanWindow": "扫描窗口",
+                "manualInput": "手动/扫码枪",
+                "cameraScan": "摄像头扫描",
+                "ready": "就绪",
+                "scanHint": "提示：扫描后按回车键确认，或使用扫码枪自动输入",
+                "scanSettings": "扫描设置",
+                "preventDuplicate": "禁止重复扫描",
+                "voiceAlert": "语音播报",
+                "highSpeedScan": "高速扫描模式",
+                "cameraLoading": "正在启动摄像头...",
+                "cameraHint": "将条形码/二维码对准扫描框",
+                "stopCamera": "停止",
+                "scanResults": "扫描结果",
+                "total": "总计",
+                "noResults": "暂无扫描结果",
+                "clearResults": "清空结果",
+                "exportResults": "导出结果",
+                "simulateScan": "模拟扫描",
+                "filePreview": "文件预览",
+                "previewDesc": "文件内容预览（最多显示前100行）：",
+                "cancel": "取消",
+                "confirmUpload": "确认上传",
+                "readyStatus": "就绪",
+                "passStatus": "PASS",
+                "failStatus": "FAIL",
+                "duplicateAlert": "SN \"{sn}\" 已扫描过，重复扫描已忽略",
+                "successImport": "成功导入 {count} 个SN",
+                "clearDataSource": "已清空所有数据源",
+                "clearResultsMsg": "已清空所有扫描结果",
+                "exportSuccess": "结果已导出为CSV文件",
+                "simulateComplete": "模拟扫描完成",
+                "deleteSN": "已删除SN: {sn}",
+                "enableDuplicate": "已启用重复扫描检测",
+                "disableDuplicate": "已禁用重复扫描检测",
+                "enableVoice": "已启用语音播报",
+                "disableVoice": "已禁用语音播报",
+                "enableHighSpeed": "已启用高速扫描模式",
+                "disableHighSpeed": "已禁用高速扫描模式",
+                "cameraStarted": "摄像头已启动",
+                "cameraStopped": "摄像头已停止",
+                "scanSuccess": "扫描成功: {sn}",
+                "scanPlaceholder": "请使用扫码枪扫描SN或手动输入",
+                "cameraAccessError": "无法访问摄像头，请检查权限",
+                "cameraActive": "扫描中...",
+                "cameraNotSupported": "您的设备不支持摄像头或摄像头访问被拒绝",
+                "voiceTest": "语音测试",
+                "voiceTestSuccess": "语音播报测试成功",
+                "voiceTestError": "语音播报测试失败，请检查浏览器兼容性",
+                "voiceNotSupported": "您的浏览器不支持语音合成功能"
+            },
+            vi: {
+                "dataSource": "Quản lý nguồn dữ liệu",
+                "uploadTitle": "Nhấp hoặc kéo thả tệp",
+                "uploadFormat": "Hỗ trợ .txt, .csv",
+                "uploadHint": "Mỗi dòng một SN, tối đa 10MB",
+                "snList": "Danh sách SN",
+                "clearData": "Xóa",
+                "noData": "Chưa có dữ liệu",
+                "scanWindow": "Cửa sổ quét",
+                "manualInput": "Thủ công/Máy quét",
+                "cameraScan": "Camera",
+                "ready": "Sẵn sàng",
+                "scanHint": "Nhấn Enter sau khi quét",
+                "scanSettings": "Cài đặt",
+                "preventDuplicate": "Chặn quét trùng",
+                "voiceAlert": "Phát âm thanh",
+                "highSpeedScan": "Quét tốc độ cao",
+                "cameraLoading": "Đang khởi động camera...",
+                "cameraHint": "Hướng mã vạch vào khung",
+                "stopCamera": "Dừng",
+                "scanResults": "Kết quả",
+                "total": "Tổng",
+                "noResults": "Chưa có kết quả",
+                "clearResults": "Xóa kết quả",
+                "exportResults": "Xuất kết quả",
+                "simulateScan": "Mô phỏng",
+                "filePreview": "Xem trước",
+                "previewDesc": "Xem trước nội dung:",
+                "cancel": "Hủy",
+                "confirmUpload": "Xác nhận",
+                "readyStatus": "Sẵn sàng",
+                "passStatus": "ĐẠT",
+                "failStatus": "LỖI",
+                "duplicateAlert": "SN \"{sn}\" đã quét",
+                "successImport": "Đã nhập {count} SN",
+                "clearDataSource": "Đã xóa dữ liệu",
+                "clearResultsMsg": "Đã xóa kết quả",
+                "exportSuccess": "Đã xuất CSV",
+                "simulateComplete": "Mô phỏng hoàn tất",
+                "deleteSN": "Đã xóa SN: {sn}",
+                "enableDuplicate": "Bật chặn trùng",
+                "disableDuplicate": "Tắt chặn trùng",
+                "enableVoice": "Bật phát âm thanh",
+                "disableVoice": "Tắt phát âm thanh",
+                "enableHighSpeed": "Bật quét nhanh",
+                "disableHighSpeed": "Tắt quét nhanh",
+                "cameraStarted": "Camera đã bật",
+                "cameraStopped": "Camera đã tắt",
+                "scanSuccess": "Quét thành công: {sn}",
+                "scanPlaceholder": "Quét SN hoặc nhập thủ công",
+                "cameraAccessError": "Lỗi truy cập camera",
+                "cameraActive": "Đang quét...",
+                "cameraNotSupported": "Thiết bị không hỗ trợ camera hoặc quyền bị từ chối",
+                "voiceTest": "Kiểm tra âm thanh",
+                "voiceTestSuccess": "Kiểm tra âm thanh thành công",
+                "voiceTestError": "Kiểm tra âm thanh thất bại",
+                "voiceNotSupported": "Trình duyệt không hỗ trợ phát âm thanh"
+            }
+        };
+        
+        // 全局变量
+        let snDataSource = new Set();
+        let scannedResults = [];
+        let currentFileContent = null;
+        let lastScanTime = 0;
+        let scannedSNs = new Set();
+        let preventDuplicate = true;
+        let enableVoice = true;
+        let highSpeedScan = true;
+        let currentLanguage = 'zh';
+        let html5QrCode = null;
+        let isCameraActive = false;
+        let currentScanMode = 'manual';
+        let speechSynthesis = window.speechSynthesis;
+        let isVoiceSupported = false;
+        let lastVoiceTime = 0;
+        
+        // DOM元素
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const snItems = document.getElementById('snItems');
+        const snCount = document.getElementById('snCount');
+        const clearDataBtn = document.getElementById('clearDataBtn');
+        const scanInput = document.getElementById('scanInput');
+        const resultsList = document.getElementById('resultsList');
+        const totalScanned = document.getElementById('totalScanned');
+        const passCount = document.getElementById('passCount');
+        const failCount = document.getElementById('failCount');
+        const clearResultsBtn = document.getElementById('clearResultsBtn');
+        const exportResultsBtn = document.getElementById('exportResultsBtn');
+        const simulateScanBtn = document.getElementById('simulateScanBtn');
+        const previewModal = document.getElementById('previewModal');
+        const snPreview = document.getElementById('snPreview');
+        const closePreviewBtn = document.getElementById('closePreviewBtn');
+        const cancelPreviewBtn = document.getElementById('cancelPreviewBtn');
+        const confirmUploadBtn = document.getElementById('confirmUploadBtn');
+        const preventDuplicateSwitch = document.getElementById('preventDuplicateSwitch');
+        const voiceSwitch = document.getElementById('voiceSwitch');
+        const highSpeedSwitch = document.getElementById('highSpeedSwitch');
+        const statusText = document.getElementById('statusText');
+        const currentLangBtn = document.getElementById('currentLangBtn');
+        const currentLangText = document.getElementById('currentLangText');
+        const langOptions = document.getElementById('langOptions');
+        const manualModeBtn = document.getElementById('manualModeBtn');
+        const cameraModeBtn = document.getElementById('cameraModeBtn');
+        const cameraContainer = document.getElementById('cameraContainer');
+        const stopCameraBtn = document.getElementById('stopCameraBtn');
+        const cameraStatus = document.getElementById('camera-status');
+        const cameraPreview = document.getElementById('camera-preview');
+        const voiceTestBtn = document.getElementById('voiceTestBtn');
+        const testVoicePassBtn = document.getElementById('testVoicePassBtn');
+        const testVoiceFailBtn = document.getElementById('testVoiceFailBtn');
+        const testVoiceDuplicateBtn = document.getElementById('testVoiceDuplicateBtn');
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检测语音合成支持
+            checkVoiceSupport();
+            
+            // 加载示例数据
+            loadExampleData();
+            
+            // 绑定事件监听器
+            bindEvents();
+            
+            // 初始化设置
+            preventDuplicate = preventDuplicateSwitch.checked;
+            enableVoice = voiceSwitch.checked;
+            highSpeedScan = highSpeedSwitch.checked;
+            
+            // 更新扫描输入框占位符
+            updateScanPlaceholder();
+            
+            // 初始化语言
+            initLanguage();
+            
+            // 自动聚焦到扫描输入框
+            scanInput.focus();
+        });
+        
+        // 检测语音合成支持
+        function checkVoiceSupport() {
+            isVoiceSupported = !!speechSynthesis;
+            
+            if (!isVoiceSupported) {
+                console.warn("浏览器不支持语音合成功能");
+                voiceSwitch.disabled = true;
+                voiceSwitch.checked = false;
+                enableVoice = false;
+                
+                // 显示警告
+                const voiceTestArea = document.getElementById('voiceTestBtn');
+                if (voiceTestArea) {
+                    voiceTestArea.innerHTML += `
+                        <div style="color: var(--warning-color); font-size: 11px; margin-top: 5px;">
+                            <i class="fas fa-exclamation-triangle"></i> ${translate('voiceNotSupported')}
+                        </div>
+                    `;
+                }
+            }
+        }
+        
+        // 语音播报函数
+        function speakText(text) {
+            if (!enableVoice || !isVoiceSupported) return;
+            
+            // 防止语音播报过于频繁（至少间隔500ms）
+            const now = Date.now();
+            if (now - lastVoiceTime < 500) return;
+            lastVoiceTime = now;
+            
+            try {
+                // 停止当前正在播放的语音
+                speechSynthesis.cancel();
+                
+                // 创建语音实例
+                const utterance = new SpeechSynthesisUtterance(text);
+                
+                // 设置语言
+                utterance.lang = currentLanguage === 'zh' ? 'zh-CN' : 'vi-VN';
+                
+                // 设置语速和音量
+                utterance.rate = 0.9;
+                utterance.volume = 1.0;
+                utterance.pitch = 1.0;
+                
+                // 播放语音
+                speechSynthesis.speak(utterance);
+                
+                // 语音播放完成后的处理
+                utterance.onend = function() {
+                    // 可以在这里添加语音播放完成后的逻辑
+                };
+                
+                utterance.onerror = function(event) {
+                    console.error("语音播报错误:", event);
+                };
+            } catch (error) {
+                console.error("语音播报失败:", error);
+                isVoiceSupported = false;
+                voiceSwitch.checked = false;
+                enableVoice = false;
+            }
+        }
+        
+        // 根据扫描结果播放语音
+        function playVoiceByResult(resultType) {
+            if (!enableVoice || !isVoiceSupported) return;
+            
+            let text = '';
+            
+            switch (resultType) {
+                case 'pass':
+                    text = currentLanguage === 'zh' ? 'PASS' : 'ĐẠT';
+                    break;
+                case 'fail':
+                    text = currentLanguage === 'zh' ? 'FAIL' : 'LỖI';
+                    break;
+                case 'duplicate':
+                    text = currentLanguage === 'zh' ? '重复扫描' : 'Quét trùng';
+                    break;
+            }
+            
+            if (text) {
+                speakText(text);
+            }
+        }
+        
+        // 初始化语言
+        function initLanguage() {
+            // 从本地存储获取语言设置
+            const savedLang = localStorage.getItem('snScannerLang');
+            if (savedLang && translations[savedLang]) {
+                currentLanguage = savedLang;
+            }
+            
+            // 更新界面语言
+            updateLanguage();
+            
+            // 设置语言切换按钮事件
+            currentLangBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                langOptions.classList.toggle('show');
+            });
+            
+            // 语言选项点击事件
+            document.querySelectorAll('.lang-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    const lang = this.getAttribute('data-lang');
+                    switchLanguage(lang);
+                    langOptions.classList.remove('show');
+                });
+            });
+            
+            // 点击外部关闭语言选项
+            document.addEventListener('click', function() {
+                langOptions.classList.remove('show');
+            });
+        }
+        
+        // 切换语言
+        function switchLanguage(lang) {
+            if (!translations[lang]) return;
+            
+            currentLanguage = lang;
+            localStorage.setItem('snScannerLang', lang);
+            updateLanguage();
+        }
+        
+        // 更新界面语言
+        function updateLanguage() {
+            // 更新语言按钮文本
+            const langNames = {
+                'zh': '中文',
+                'vi': 'Tiếng Việt'
+            };
+            currentLangText.textContent = langNames[currentLanguage];
+            
+            // 更新所有带data-i18n属性的元素
+            updateLanguageElements();
+            
+            // 更新状态文本
+            statusText.textContent = translate('readyStatus');
+            
+            // 更新结果列表中的时间标签（如果有结果）
+            if (scannedResults.length > 0) {
+                updateResultsList();
+            }
+        }
+        
+        // 更新语言元素
+        function updateLanguageElements() {
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                if (translations[currentLanguage][key]) {
+                    let text = translations[currentLanguage][key];
+                    
+                    // 如果是扫描输入框占位符
+                    if (element.id === 'scanInput') {
+                        element.placeholder = text;
+                    } else {
+                        element.textContent = text;
+                    }
+                }
+            });
+        }
+        
+        // 翻译文本（支持带参数）
+        function translate(key, params = {}) {
+            let text = translations[currentLanguage][key] || translations['zh'][key] || key;
+            
+            // 替换参数
+            Object.keys(params).forEach(param => {
+                text = text.replace(`{${param}}`, params[param]);
+            });
+            
+            return text;
+        }
+        
+        // 更新扫描输入框占位符
+        function updateScanPlaceholder() {
+            scanInput.placeholder = translate('scanPlaceholder');
+        }
+        
+        // 绑定事件
+        function bindEvents() {
+            // 文件上传相关事件
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('drop', handleFileDrop);
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            // 数据源管理事件
+            clearDataBtn.addEventListener('click', clearDataSource);
+            
+            // 扫描相关事件
+            scanInput.addEventListener('keydown', handleScanInput);
+            
+            // 扫描模式切换
+            manualModeBtn.addEventListener('click', () => switchScanMode('manual'));
+            cameraModeBtn.addEventListener('click', () => switchScanMode('camera'));
+            
+            // 摄像头控制
+            stopCameraBtn.addEventListener('click', stopCamera);
+            
+            // 设置相关事件
+            preventDuplicateSwitch.addEventListener('change', function() {
+                preventDuplicate = this.checked;
+                showToast(
+                    this.checked ? translate('enableDuplicate') : translate('disableDuplicate'), 
+                    "info"
+                );
+            });
+            
+            voiceSwitch.addEventListener('change', function() {
+                enableVoice = this.checked && isVoiceSupported;
+                showToast(
+                    this.checked ? translate('enableVoice') : translate('disableVoice'), 
+                    "info"
+                );
+            });
+            
+            highSpeedSwitch.addEventListener('change', function() {
+                highSpeedScan = this.checked;
+                showToast(
+                    this.checked ? translate('enableHighSpeed') : translate('disableHighSpeed'), 
+                    "info"
+                );
+            });
+            
+            // 语音测试按钮事件
+            testVoicePassBtn.addEventListener('click', function() {
+                playVoiceByResult('pass');
+                showToast(translate('voiceTestSuccess'), "success");
+            });
+            
+            testVoiceFailBtn.addEventListener('click', function() {
+                playVoiceByResult('fail');
+                showToast(translate('voiceTestSuccess'), "success");
+            });
+            
+            testVoiceDuplicateBtn.addEventListener('click', function() {
+                playVoiceByResult('duplicate');
+                showToast(translate('voiceTestSuccess'), "success");
+            });
+            
+            // 结果管理事件
+            clearResultsBtn.addEventListener('click', clearScanResults);
+            exportResultsBtn.addEventListener('click', exportResults);
+            simulateScanBtn.addEventListener('click', simulateScanner);
+            
+            // 模态框事件
+            closePreviewBtn.addEventListener('click', () => previewModal.style.display = 'none');
+            cancelPreviewBtn.addEventListener('click', () => previewModal.style.display = 'none');
+            confirmUploadBtn.addEventListener('click', confirmFileUpload);
+            
+            // 点击模态框外部关闭
+            previewModal.addEventListener('click', function(e) {
+                if (e.target === previewModal) {
+                    previewModal.style.display = 'none';
+                }
+            });
+            
+            // 页面卸载时停止摄像头和语音
+            window.addEventListener('beforeunload', function() {
+                if (isCameraActive && html5QrCode) {
+                    try {
+                        html5QrCode.stop();
+                    } catch (e) {
+                        // 忽略错误
+                    }
+                }
+                
+                // 停止语音播放
+                if (speechSynthesis) {
+                    speechSynthesis.cancel();
+                }
+            });
+        }
+        
+        // 切换扫描模式
+        function switchScanMode(mode) {
+            if (currentScanMode === mode) return;
+            
+            // 更新按钮状态
+            manualModeBtn.classList.remove('active');
+            cameraModeBtn.classList.remove('active');
+            
+            if (mode === 'manual') {
+                manualModeBtn.classList.add('active');
+                cameraContainer.style.display = 'none';
+                scanInput.disabled = false;
+                scanInput.focus();
+                
+                // 如果摄像头正在运行，停止它
+                if (isCameraActive) {
+                    stopCamera();
+                }
+            } else if (mode === 'camera') {
+                cameraModeBtn.classList.add('active');
+                cameraContainer.style.display = 'block';
+                scanInput.disabled = true;
+                
+                // 启动摄像头
+                startCamera();
+            }
+            
+            currentScanMode = mode;
+        }
+        
+        // 启动摄像头（修复版）
+        async function startCamera() {
+            // 如果已经激活，先停止
+            if (isCameraActive && html5QrCode) {
+                await stopCamera();
+            }
+            
+            try {
+                // 更新摄像头状态显示
+                cameraStatus.innerHTML = `
+                    <i class="fas fa-camera" style="font-size: 36px; margin-bottom: 12px;"></i>
+                    <p>${translate('cameraLoading')}</p>
+                `;
+                cameraStatus.style.display = 'flex';
+                
+                // 检查浏览器是否支持摄像头
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error(translate('cameraNotSupported'));
+                }
+                
+                // 初始化html5QrCode扫描器
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("camera-preview");
+                }
+                
+                // 配置摄像头
+                const cameraConfig = {
+                    fps: highSpeedScan ? 30 : 15,
+                    qrbox: { width: 220, height: 120 },
+                    aspectRatio: 1.0,
+                    disableFlip: false
+                };
+                
+                // 尝试启动后置摄像头
+                try {
+                    await html5QrCode.start(
+                        { facingMode: "environment" },
+                        cameraConfig,
+                        onCameraScanSuccess,
+                        onCameraScanFailure
+                    );
+                } catch (rearCameraError) {
+                    console.log("后置摄像头启动失败，尝试前置摄像头:", rearCameraError);
+                    // 如果后置摄像头失败，尝试前置摄像头
+                    await html5QrCode.start(
+                        { facingMode: "user" },
+                        cameraConfig,
+                        onCameraScanSuccess,
+                        onCameraScanFailure
+                    );
+                }
+                
+                // 更新状态
+                isCameraActive = true;
+                cameraStatus.style.display = 'none';
+                statusText.textContent = translate('cameraActive');
+                statusText.style.color = "var(--primary-color)";
+                showToast(translate('cameraStarted'), "success");
+                
+            } catch (error) {
+                console.error("启动摄像头失败:", error);
+                
+                // 显示错误信息
+                cameraStatus.innerHTML = `
+                    <div class="camera-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>${translate('cameraAccessError')}</p>
+                        <p style="font-size: 11px; margin-top: 5px;">${error.message || ''}</p>
+                        <button class="btn btn-primary btn-sm" id="retryCameraBtn" style="margin-top: 10px;">
+                            <i class="fas fa-redo"></i> 重试
+                        </button>
+                    </div>
+                `;
+                
+                // 添加重试按钮事件
+                document.getElementById('retryCameraBtn')?.addEventListener('click', startCamera);
+                
+                showToast(translate('cameraAccessError'), "error");
+                
+                // 切换回手动模式
+                setTimeout(() => {
+                    switchScanMode('manual');
+                }, 3000);
+            }
+        }
+        
+        // 停止摄像头
+        async function stopCamera() {
+            if (!html5QrCode || !isCameraActive) return;
+            
+            try {
+                await html5QrCode.stop();
+                isCameraActive = false;
+                cameraStatus.style.display = 'flex';
+                cameraStatus.innerHTML = `
+                    <i class="fas fa-camera" style="font-size: 36px; margin-bottom: 12px;"></i>
+                    <p>${translate('cameraLoading')}</p>
+                `;
+                statusText.textContent = translate('readyStatus');
+                statusText.style.color = "";
+                showToast(translate('cameraStopped'), "info");
+            } catch (error) {
+                console.error("停止摄像头失败:", error);
+                // 即使停止失败，也更新状态
+                isCameraActive = false;
+                cameraStatus.style.display = 'flex';
+                cameraStatus.innerHTML = `
+                    <i class="fas fa-camera" style="font-size: 36px; margin-bottom: 12px;"></i>
+                    <p>${translate('cameraLoading')}</p>
+                `;
+                statusText.textContent = translate('readyStatus');
+                statusText.style.color = "";
+            }
+        }
+        
+        // 摄像头扫描成功回调
+        function onCameraScanSuccess(decodedText, decodedResult) {
+            // 防止频繁触发
+            const now = Date.now();
+            if (now - lastScanTime < 300) return;
+            lastScanTime = now;
+            
+            const sn = decodedText.trim();
+            if (!sn) return;
+            
+            // 显示扫描成功提示
+            showToast(translate('scanSuccess', {sn: sn}), "success");
+            
+            // 检查是否禁止重复扫描
+            if (preventDuplicate && scannedSNs.has(sn)) {
+                showDuplicateAlert(sn);
+                playVoiceByResult('duplicate');
+                return;
+            }
+            
+            // 检查SN是否在数据源中
+            const isPass = snDataSource.has(sn);
+            
+            // 添加到已扫描集合
+            scannedSNs.add(sn);
+            
+            // 添加到扫描结果
+            addScanResult(sn, isPass);
+            
+            // 播放语音提示
+            playVoiceByResult(isPass ? 'pass' : 'fail');
+        }
+        
+        // 摄像头扫描失败回调
+        function onCameraScanFailure(error) {
+            // 这里可以处理扫描失败的情况，但通常不需要特别处理
+            // console.log("扫描失败:", error);
+        }
+        
+        // 处理拖拽文件
+        function handleDragOver(e) {
+            e.preventDefault();
+            uploadArea.style.borderColor = 'var(--primary-color)';
+            uploadArea.style.backgroundColor = 'rgba(24, 144, 255, 0.04)';
+        }
+        
+        function handleFileDrop(e) {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#d9d9d9';
+            uploadArea.style.backgroundColor = '#fafafa';
+            
+            if (e.dataTransfer.files.length) {
+                const file = e.dataTransfer.files[0];
+                previewFile(file);
+            }
+        }
+        
+        // 处理文件选择
+        function handleFileSelect(e) {
+            if (e.target.files.length) {
+                const file = e.target.files[0];
+                previewFile(file);
+            }
+        }
+        
+        // 预览文件内容
+        function previewFile(file) {
+            // 检查文件类型
+            const validExtensions = ['.txt', '.csv'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!validExtensions.includes(fileExtension)) {
+                alert(currentLanguage === 'vi' ? 
+                    'Vui lòng tải lên tệp định dạng .txt hoặc .csv' : 
+                    '请上传.txt或.csv格式的文件');
+                return;
+            }
+            
+            // 检查文件大小（限制10MB）
+            if (file.size > 10 * 1024 * 1024) {
+                alert(currentLanguage === 'vi' ? 
+                    'Kích thước tệp không được vượt quá 10MB' : 
+                    '文件大小不能超过10MB');
+                return;
+            }
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                currentFileContent = {
+                    name: file.name,
+                    size: formatFileSize(file.size),
+                    content: e.target.result
+                };
+                
+                // 显示预览
+                showFilePreview();
+            };
+            
+            reader.onerror = function() {
+                alert(currentLanguage === 'vi' ? 
+                    'Đọc tệp thất bại, vui lòng thử lại' : 
+                    '文件读取失败，请重试');
+            };
+            
+            reader.readAsText(file, 'UTF-8');
+        }
+        
+        // 显示文件预览
+        function showFilePreview() {
+            if (!currentFileContent) return;
+            
+            // 解析文件内容
+            const lines = currentFileContent.content.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            
+            // 显示预览内容（最多100行）
+            const previewLines = lines.slice(0, 100);
+            let previewHTML = '';
+            
+            previewLines.forEach((line, index) => {
+                previewHTML += `<div class="sn-preview-item">${index + 1}. ${line}</div>`;
+            });
+            
+            if (lines.length > 100) {
+                previewHTML += `<div class="sn-preview-item">... ${
+                    currentLanguage === 'vi' ? `và ${lines.length - 100} SN khác` : 
+                    `以及 ${lines.length - 100} 个更多SN`
+                }</div>`;
+            }
+            
+            snPreview.innerHTML = previewHTML;
+            previewModal.style.display = 'flex';
+        }
+        
+        // 确认上传文件
+        function confirmFileUpload() {
+            if (!currentFileContent) return;
+            
+            // 解析文件内容
+            const lines = currentFileContent.content.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            
+            // 添加到数据源
+            const addedCount = lines.length;
+            const duplicateCount = lines.filter(sn => snDataSource.has(sn)).length;
+            const newCount = addedCount - duplicateCount;
+            
+            lines.forEach(sn => {
+                snDataSource.add(sn);
+            });
+            
+            // 更新文件列表
+            addFileToList(currentFileContent.name, currentFileContent.size, lines.length, duplicateCount);
+            
+            // 更新SN列表显示
+            updateSnList();
+            
+            // 关闭模态框
+            previewModal.style.display = 'none';
+            currentFileContent = null;
+            
+            // 清空文件输入
+            fileInput.value = '';
+            
+            // 显示上传成功消息
+            showToast(
+                translate('successImport', {count: addedCount}), 
+                "success"
+            );
+        }
+        
+        // 添加文件到列表
+        function addFileToList(fileName, fileSize, snCount, duplicateCount = 0) {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            
+            const duplicateText = currentLanguage === 'vi' ? 
+                `(${duplicateCount} trùng)` : 
+                `(${duplicateCount}重复)`;
+            
+            const duplicateInfo = duplicateCount > 0 ? 
+                `<span style="color:var(--warning-color); font-size:11px;">${duplicateText}</span>` : '';
+            
+            fileItem.innerHTML = `
+                <i class="fas fa-file-alt"></i>
+                <div class="file-info">
+                    <div class="file-name">${fileName}</div>
+                    <div class="file-size">${fileSize} · ${snCount} ${
+                        currentLanguage === 'vi' ? 'SN' : '个SN'
+                    } ${duplicateInfo}</div>
+                </div>
+                <div class="file-actions">
+                    <button class="btn-icon" title="${currentLanguage === 'vi' ? 'Xem' : '查看'}">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn-icon" title="${currentLanguage === 'vi' ? 'Xóa' : '删除'}">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            `;
+            
+            // 添加事件监听
+            const deleteBtn = fileItem.querySelector('.fa-trash-alt').closest('.btn-icon');
+            deleteBtn.addEventListener('click', function() {
+                fileItem.remove();
+                // 这里简化处理，不实际从数据源中删除SN
+            });
+            
+            fileList.appendChild(fileItem);
+        }
+        
+        // 更新SN列表显示
+        function updateSnList() {
+            snCount.textContent = snDataSource.size;
+            
+            if (snDataSource.size === 0) {
+                snItems.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-box-open"></i>
+                        <p>${translate('noData')}</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 显示前30个SN（移动端优化）
+            const snArray = Array.from(snDataSource);
+            const displayCount = Math.min(snArray.length, 30);
+            
+            let snItemsHTML = '';
+            
+            for (let i = 0; i < displayCount; i++) {
+                snItemsHTML += `
+                    <div class="sn-item">
+                        <i class="fas fa-hashtag"></i>
+                        <span class="sn-text">${snArray[i]}</span>
+                    </div>
+                `;
+            }
+            
+            if (snArray.length > 30) {
+                const moreText = currentLanguage === 'vi' ? 
+                    `... và ${snArray.length - 30} SN khác` : 
+                    `... 还有 ${snArray.length - 30} 个SN`;
+                
+                snItemsHTML += `
+                    <div class="sn-item" style="justify-content: center; color: var(--text-secondary); font-size: 12px;">
+                        ${moreText}
+                    </div>
+                `;
+            }
+            
+            snItems.innerHTML = snItemsHTML;
+        }
+        
+        // 清空数据源
+        function clearDataSource() {
+            if (snDataSource.size === 0) return;
+            
+            const confirmMsg = currentLanguage === 'vi' ? 
+                'Bạn có chắc chắn muốn xóa tất cả nguồn dữ liệu?' :
+                '确定要清空所有数据源吗？';
+            
+            if (confirm(confirmMsg)) {
+                snDataSource.clear();
+                scannedSNs.clear();
+                fileList.innerHTML = '';
+                updateSnList();
+                showToast(translate('clearDataSource'), "info");
+            }
+        }
+        
+        // 处理扫描输入
+        function handleScanInput(e) {
+            // 按下回车键处理扫描
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                processScan();
+            }
+        }
+        
+        // 处理扫描
+        function processScan() {
+            const sn = scanInput.value.trim();
+            
+            if (!sn) return;
+            
+            // 防止重复快速扫描（300ms内）
+            const now = Date.now();
+            if (now - lastScanTime < 300) {
+                scanInput.value = '';
+                return;
+            }
+            
+            lastScanTime = now;
+            
+            // 检查是否禁止重复扫描
+            if (preventDuplicate && scannedSNs.has(sn)) {
+                showDuplicateAlert(sn);
+                playVoiceByResult('duplicate');
+                scanInput.value = '';
+                scanInput.focus();
+                return;
+            }
+            
+            // 检查SN是否在数据源中
+            const isPass = snDataSource.has(sn);
+            
+            // 添加到已扫描集合
+            scannedSNs.add(sn);
+            
+            // 添加到扫描结果
+            addScanResult(sn, isPass);
+            
+            // 播放语音提示
+            playVoiceByResult(isPass ? 'pass' : 'fail');
+            
+            // 清空输入框并聚焦
+            scanInput.value = '';
+            scanInput.focus();
+            
+            // 更新统计
+            updateStats();
+        }
+        
+        // 显示重复扫描提示
+        function showDuplicateAlert(sn) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'duplicate-alert';
+            alertDiv.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>${translate('duplicateAlert', {sn: sn})}</span>
+            `;
+            
+            document.body.appendChild(alertDiv);
+            
+            // 2秒后移除提示
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.parentNode.removeChild(alertDiv);
+                }
+            }, 2000);
+        }
+        
+        // 添加扫描结果
+        function addScanResult(sn, isPass) {
+            const result = {
+                id: scannedResults.length + 1,
+                sn: sn,
+                isPass: isPass,
+                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                mode: currentScanMode
+            };
+            
+            // 添加到结果数组开头（最新结果显示在最上面）
+            scannedResults.unshift(result);
+            
+            // 限制结果数量，避免内存问题
+            if (scannedResults.length > 100) {
+                scannedResults = scannedResults.slice(0, 100);
+            }
+            
+            // 更新结果列表显示
+            updateResultsList();
+            
+            // 更新状态文本
+            statusText.textContent = isPass ? translate('passStatus') : translate('failStatus');
+            statusText.style.color = isPass ? "var(--success-color)" : "var(--error-color)";
+            statusText.style.fontWeight = "bold";
+            
+            // 2秒后恢复状态文本
+            setTimeout(() => {
+                statusText.textContent = translate('readyStatus');
+                statusText.style.color = "";
+                statusText.style.fontWeight = "";
+            }, 1500);
+        }
+        
+        // 更新结果列表显示
+        function updateResultsList() {
+            if (scannedResults.length === 0) {
+                resultsList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-barcode"></i>
+                        <p>${translate('noResults')}</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let resultsHTML = '';
+            
+            // 只显示前20个结果以提高性能
+            const displayResults = scannedResults.slice(0, 20);
+            
+            displayResults.forEach(result => {
+                const resultText = result.isPass ? translate('passStatus') : translate('failStatus');
+                const modeIcon = result.mode === 'camera' ? '<i class="fas fa-camera" style="margin-right: 4px; font-size: 10px; opacity: 0.7;"></i>' : '';
+                
+                resultsHTML += `
+                    <div class="result-item">
+                        <div class="result-status ${result.isPass ? 'pass' : 'fail'}">
+                            <i class="fas fa-${result.isPass ? 'check' : 'times'}"></i>
+                        </div>
+                        <div class="result-details">
+                            <div class="result-main">
+                                <span class="result-sn">${modeIcon}${result.sn}</span>
+                                <span class="result-text ${result.isPass ? 'pass' : 'fail'}">
+                                    ${resultText}
+                                </span>
+                            </div>
+                            <div class="result-time">
+                                <i class="far fa-clock" style="font-size: 10px;"></i>
+                                ${result.time}
+                            </div>
+                        </div>
+                        <div class="result-actions">
+                            <button class="btn-icon btn-sm" title="${currentLanguage === 'vi' ? 'Quét lại' : '重新扫描'}">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                            <button class="btn-icon btn-sm" title="${currentLanguage === 'vi' ? 'Xóa' : '删除'}">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            resultsList.innerHTML = resultsHTML;
+            
+            // 添加按钮事件
+            addResultActions();
+        }
+        
+        // 添加结果项按钮事件
+        function addResultActions() {
+            // 重新扫描按钮
+            resultsList.querySelectorAll('.fa-redo').forEach(icon => {
+                icon.closest('.btn-icon').addEventListener('click', function() {
+                    const resultItem = this.closest('.result-item');
+                    const snText = resultItem.querySelector('.result-sn').textContent;
+                    const sn = snText.replace(/[^\w\-]/g, ''); // 移除图标字符
+                    
+                    // 将SN填入输入框
+                    scanInput.value = sn;
+                    scanInput.focus();
+                    switchScanMode('manual');
+                });
+            });
+            
+            // 删除按钮
+            resultsList.querySelectorAll('.fa-trash-alt').forEach(icon => {
+                icon.closest('.btn-icon').addEventListener('click', function() {
+                    const resultItem = this.closest('.result-item');
+                    const snText = resultItem.querySelector('.result-sn').textContent;
+                    const sn = snText.replace(/[^\w\-]/g, '');
+                    
+                    // 从结果中删除
+                    const index = scannedResults.findIndex(r => r.sn === sn);
+                    if (index !== -1) {
+                        scannedResults.splice(index, 1);
+                        // 从已扫描集合中移除
+                        scannedSNs.delete(sn);
+                        updateResultsList();
+                        updateStats();
+                        showToast(translate('deleteSN', {sn: sn}), "info");
+                    }
+                });
+            });
+        }
+        
+        // 更新统计信息
+        function updateStats() {
+            const total = scannedResults.length;
+            const pass = scannedResults.filter(r => r.isPass).length;
+            const fail = total - pass;
+            
+            totalScanned.textContent = total;
+            passCount.textContent = pass;
+            failCount.textContent = fail;
+        }
+        
+        // 清空扫描结果
+        function clearScanResults() {
+            if (scannedResults.length === 0) return;
+            
+            const confirmMsg = currentLanguage === 'vi' ? 
+                'Bạn có chắc chắn muốn xóa tất cả kết quả quét?' :
+                '确定要清空所有扫描结果吗？';
+            
+            if (confirm(confirmMsg)) {
+                scannedResults = [];
+                scannedSNs.clear();
+                updateResultsList();
+                updateStats();
+                showToast(translate('clearResultsMsg'), "info");
+            }
+        }
+        
+        // 导出结果
+        function exportResults() {
+            if (scannedResults.length === 0) {
+                alert(currentLanguage === 'vi' ? 
+                    'Không có kết quả quét để xuất' : 
+                    '没有可导出的扫描结果');
+                return;
+            }
+            
+            let csvContent = currentLanguage === 'vi' ? 
+                "STT,SN,Kết quả,Thời gian,Phương thức\n" : 
+                "序号,SN,结果,时间,扫描方式\n";
+            
+            scannedResults.forEach(result => {
+                const resultText = result.isPass ? 
+                    (currentLanguage === 'vi' ? "ĐẠT" : "PASS") : 
+                    (currentLanguage === 'vi' ? "LỖI" : "FAIL");
+                const modeText = result.mode === 'camera' ? 
+                    (currentLanguage === 'vi' ? "Camera" : "摄像头") : 
+                    (currentLanguage === 'vi' ? "Thủ công" : "手动");
+                csvContent += `${result.id},${result.sn},${resultText},${result.time},${modeText}\n`;
+            });
+            
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const fileName = currentLanguage === 'vi' ? 
+                `Ket_qua_quet_SN_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv` :
+                `SN扫描结果_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(url);
+            
+            showToast(translate('exportSuccess'), "success");
+        }
+        
+        // 加载示例数据
+        function loadExampleData() {
+            // 示例SN数据
+            const exampleSNs = [
+                "SN20240001", "SN20240002", "SN20240003", "SN20240005", "SN20240007",
+                "SN20240009", "SN20240012", "SN20240015", "SN20240018", "SN20240021",
+                "SN20240024", "SN20240027", "SN20240030", "SN20240033", "SN20240036"
+            ];
+            
+            // 添加到数据源
+            exampleSNs.forEach(sn => {
+                snDataSource.add(sn);
+            });
+            
+            // 添加一个示例文件
+            const fileName = currentLanguage === 'vi' ? 'Dữ liệu mẫu.txt' : '示例数据.txt';
+            addFileToList(fileName, "1.2KB", exampleSNs.length);
+            
+            // 更新显示
+            updateSnList();
+        }
+        
+        // 模拟扫码枪自动输入（测试用）
+        function simulateScanner() {
+            const testSNs = [
+                "SN20240001", "SN20240002", "SN20240004", "SN20240005", 
+                "SN20240007", "SN20240008", "SN20240009", "SN20240010",
+                "SN20240001", "SN20240002", "SN20240012"
+            ];
+            
+            let index = 0;
+            
+            const interval = setInterval(() => {
+                if (index < testSNs.length) {
+                    scanInput.value = testSNs[index];
+                    processScan();
+                    index++;
+                } else {
+                    clearInterval(interval);
+                    showToast(translate('simulateComplete'), "success");
+                }
+            }, 800);
+        }
+        
+        // 显示提示消息
+        function showToast(message, type) {
+            // 移除已有的消息
+            const existingToasts = document.querySelectorAll('.toast');
+            existingToasts.forEach(toast => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            });
+            
+            // 创建新消息
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            
+            document.body.appendChild(toast);
+            
+            // 3秒后自动移除
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 3000);
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = currentLanguage === 'vi' ? 
+                ['Bytes', 'KB', 'MB', 'GB'] : 
+                ['字节', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
